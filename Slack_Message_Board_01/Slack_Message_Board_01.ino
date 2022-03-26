@@ -1,6 +1,6 @@
 /* ESP8266 plus MAX7219 LED Matrix that displays messages revecioved via a WiFi connection using a Web Server
   #######################################################################################################################################
-  This software, the ideas and concepts is Copyright (c) David Bird 2018. All rights to this software are reserved.
+  This software, the ideas, and concepts is Copyright (c) David Bird 2018. All rights to this software are reserved.
 
   Any redistribution or reproduction of any part or all of the contents in any form is prohibited other than the following:
   1. You may print or download to a local hard disk extracts for your personal and non-commercial use only.
@@ -16,6 +16,9 @@
   IN NO EVENT SHALL THE AUTHOR OR COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   See more at http://www.dsbird.org.uk
+
+
+## App url for Slack: https://slack.com/oauth/v2/authorize?client_id=1717155021442.3243511379959&scope=users.profile:read&user_scope=users.profile:read
 */
 
 //################# LIBRARIES ##########################
@@ -27,11 +30,8 @@
 #include <Max72xxPanel.h>
 #include <ArduinoJson.h>
 #include <TaskScheduler.h>
+#include "configs.h"
 
-const char *ssid     = "-";
-const char *password = "-";
-
-String  serverName = "https://slack.com/api/users.profile.get?user={id}";
 // We declare the function that we are going to use
 void httpRequest();
 
@@ -66,7 +66,7 @@ String SITE_WIDTH =  "1000";
 void setup() {
   Serial.begin(115200); // initialize serial communications
   WiFi.begin(ssid, password);             // Connect to the network
-
+  Serial.println("Please autherize the App to your Slack workspace by visiting this url:\n App url for Slack: https://slack.com/oauth/v2/authorize?client_id=1717155021442.3243511379959&scope=users.profile:read&user_scope=users.profile:read");
   matrix.setIntensity(2);    // Use a value between 0 and 15 for brightness
   matrix.setRotation(0, 1);  // The first display is position upside down
   matrix.setRotation(1, 1);  // The first display is position upside down
@@ -123,7 +123,7 @@ String httpGETRequest(String serverName) {
   HTTPClient http;
   http.begin(client, serverName);
 
-  http.addHeader("Authorization", "Bearer xoxp-xxxxxx", true);
+  http.addHeader("Authorization", slackToken, true);
 
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
