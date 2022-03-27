@@ -4,6 +4,9 @@ This is an ESP8266 project on Arduino platform, were it retrieves a user profile
 
 ### Prerequisite:
 - Slack App token with profile read scope
+## Hardware List:
+- [Dotmatrix LED Display 8x32 max7219](https://www.amazon.com/s?k=dotmatrix+8x32+max7219&crid=OIBM16J3CVXL&sprefix=dotmatrix+8x32+max7219%2Caps%2C164&ref=nb_sb_noss)
+- [ESP8266 Board](https://www.amazon.com/s?k=esp8266+wemose&crid=227ZO9DDYXSCO&sprefix=esp8266+wemos%2Caps%2C177&ref=nb_sb_noss)
 ### Implementation:
 - connect a Dotmatrix LED display 8x32 to any esp8266 device
 - burn the code
