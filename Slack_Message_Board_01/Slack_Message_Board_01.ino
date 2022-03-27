@@ -18,7 +18,7 @@
   See more at http://www.dsbird.org.uk
 
 
-## App url for Slack: https://slack.com/oauth/v2/authorize?client_id=1717155021442.3243511379959&scope=users.profile:read&user_scope=users.profile:read
+  ## App url for Slack: https://slack.com/oauth/v2/authorize?client_id=1717155021442.3243511379959&scope=users.profile:read&user_scope=users.profile:read
 */
 
 //################# LIBRARIES ##########################
@@ -30,7 +30,43 @@
 #include <Max72xxPanel.h>
 #include <ArduinoJson.h>
 #include <TaskScheduler.h>
-#include "configs.h"
+#include <ESPAsyncWebServer.h>
+#include <ESP8266mDNS.h>
+#include <AsyncWebConfig.h>
+
+String params = "["
+                "{"
+                "'name':'ssid',"
+                "'label':'WLAN SSID',"
+                "'type':" + String(INPUTTEXT) + ","
+                "'default':''"
+                "},"
+                "{"
+                "'name':'pwd',"
+                "'label':'WLAN Password',"
+                "'type':" + String(INPUTPASSWORD) + ","
+                "'default':''"
+                "},"
+
+                "{"
+                "'name':'slackToken',"
+                "'label':'Slack Token',"
+                "'type':" + String(INPUTTEXT) + ","
+                "'default':''"
+                "},"
+
+                "{"
+                "'name':'slackUser',"
+                "'label':'Slack User',"
+                "'type':" + String(INPUTTEXT) + ","
+                "'default':''"
+                "}"
+
+                "]";
+
+
+AsyncWebServer server(80);
+AsyncWebConfig conf;
 
 // We declare the function that we are going to use
 void httpRequest();
@@ -39,14 +75,15 @@ void httpRequest();
 Scheduler runner;
 
 // We create the task indicating that it runs every 500 milliseconds, forever, and call the led_blink function
-Task TareaLED(60000, TASK_FOREVER, &httpRequest);
+Task getSlackStatus(60000, TASK_FOREVER, &httpRequest);
 
 int pinCS = D4; // Attach CS to this pin, DIN to MOSI and CLK to SCK (cf http://arduino.cc/en/Reference/SPI )
 int numberOfHorizontalDisplays = 4;
 int numberOfVerticalDisplays   = 1;
 char time_value[20];
-String message, myStatus;
-
+String message, myStatus, serverName , slackToken;
+DynamicJsonDocument doc(512);
+//https://arduinojson.org/v6/assistant/
 //################# DISPLAY CONNECTIONS ################
 // LED Matrix Pin -> ESP8266 Pin
 // Vcc            -> 3v  (3V on NodeMCU 3V3 on WEMOS)
@@ -58,14 +95,13 @@ String message, myStatus;
 //################ PROGRAM SETTINGS ####################
 
 Max72xxPanel matrix = Max72xxPanel(pinCS, numberOfHorizontalDisplays, numberOfVerticalDisplays);
-int wait   = 75; // In milliseconds between scroll movements
+int wait   = 120; // In milliseconds between scroll movements
 int spacer = 1;
-int width  = 6 + spacer; // The font width is 5 pixels
+int width  = 5 + spacer; // The font width is 5 pixels
 String SITE_WIDTH =  "1000";
 
 void setup() {
   Serial.begin(115200); // initialize serial communications
-  WiFi.begin(ssid, password);             // Connect to the network
   Serial.println("Please autherize the App to your Slack workspace by visiting this url:\n App url for Slack: https://slack.com/oauth/v2/authorize?client_id=1717155021442.3243511379959&scope=users.profile:read&user_scope=users.profile:read");
   matrix.setIntensity(2);    // Use a value between 0 and 15 for brightness
   matrix.setRotation(0, 1);  // The first display is position upside down
@@ -78,66 +114,116 @@ void setup() {
   //  wait    = 80;
   //  message = "Welcome...";
 
-  message = "Connecting to " + String(ssid);
-  display_message(message);
-  message = "Connecting...";
-  WiFi.begin(ssid, password);             // Connect to the network
+  //  message = "Connecting to " + String(ssid);
+  //  display_message(message);
+  //  message = "Connecting...";
 
-  int i = 0;
-  while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
-    delay(1000);
-    Serial.print(++i); Serial.print(' ');
-
-    display_message(message); // Display the message
-    message += String(".");
+  //  Serial.println(params);
+  conf.setDescription(params);
+  Serial.println("read config");
+  conf.readConfig();
+  serverName = "https://slack.com/api/users.profile.get?user=" + String(conf.values[3].c_str());
+  slackToken = "Bearer " + String(conf.values[2].c_str());
+  initWiFi();
+  //  Serial.println(serverName);
+  char dns[30];
+  sprintf(dns, "%s.local", conf.getApName());
+  if (MDNS.begin(dns)) {
+    Serial.println("MDNS responder gestartet");
   }
+  server.on("/", handleRoot);
+  server.begin();
 
-  Serial.println('\n');
-  Serial.println("Connection established!");
-  Serial.print("IP address:\t");
-  Serial.println(WiFi.localIP());         // Send the IP address of the ESP8266 to the computer
-  // We add the task to the task scheduler
-  runner.addTask(TareaLED);
+  runner.addTask(getSlackStatus);
 
   // We activate the task
-  TareaLED.enable();
+  getSlackStatus.enable();
 }
 void loop() {
+
+  MDNS.update();
   runner.execute();
 
-  DynamicJsonDocument doc(400);
   deserializeJson(doc, myStatus);
 
   JsonObject obj = doc.as<JsonObject>();
   String Status = obj["profile"]["status_text"].as<String>();
   wait    = 120;
   display_message(Status); // Display the message
-delay (500);
+  delay (500);
 
 }
+boolean initWiFi() {
+  boolean connected = false;
+  WiFi.mode(WIFI_STA);
+  Serial.print("Connecting to ");
+  Serial.print(conf.values[0]);
+  if (conf.values[0] != "") {
+    WiFi.begin(conf.values[0].c_str(), conf.values[1].c_str());
+    uint8_t cnt = 0;
+    while ((WiFi.status() != WL_CONNECTED) && (cnt < 20)) {
+      delay(500);
+      Serial.print(".");
+      cnt++;
+    }
+    Serial.println();
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.print("IP-Adresse = ");
+      Serial.println(WiFi.localIP());
+      connected = true;
+    }
+  }
+  if (!connected) {
+    WiFi.mode(WIFI_AP);
+    WiFi.softAP(conf.getApName(), "", 1);
+  }
+  return connected;
+}
 
-String httpGETRequest(String serverName) {
+void handleRoot(AsyncWebServerRequest *request) {
+  conf.handleFormRequest(request);
+  if (request->hasParam("SAVE")) {
+    uint8_t cnt = conf.getCount();
+    Serial.println("*********** Configuration ************");
+    for (uint8_t i = 0; i < cnt; i++) {
+      Serial.print(conf.getName(i));
+      Serial.print(" = ");
+      Serial.println(conf.values[i]);
+    }
+
+  }
+}
+String httpGETRequest(String serverName, String token) {
   WiFiClientSecure client;
   client.setInsecure(); //the magic line, use with caution
-  client.connect(serverName, 443);
+  client.connect("https://slack.com", 443);
   HTTPClient http;
   http.begin(client, serverName);
 
-  http.addHeader("Authorization", slackToken, true);
+
+  http.addHeader("Authorization", token , true);
 
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
 
   // Send HTTP POST request
   int httpResponseCode = http.GET();
+  DynamicJsonDocument doc(400);
 
   String payload = "{}";
 
   if (httpResponseCode > 0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
+    //    Serial.print("HTTP Response code: ");
+    //    Serial.println(httpResponseCode);
     payload = http.getString();
-    Serial.println(payload);
+    deserializeJson(doc, payload);
+    JsonObject obj = doc.as<JsonObject>();
+    bool Status = obj["ok"].as<bool>();
+    if (Status != true) {
+      payload = "Failed to fetch user status";
+
+    }
+    //    Serial.println(payload);
   }
   else {
     Serial.print("Error code: ");
@@ -169,6 +255,6 @@ void display_message(String message) {
 }
 void httpRequest() {
 
-  myStatus = httpGETRequest(serverName);
+  myStatus = httpGETRequest(serverName, slackToken);
 
 }
