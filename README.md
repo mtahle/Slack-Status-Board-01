@@ -2,7 +2,7 @@
 This is an ESP8266 project on Arduino platform, were it retrieves a user profile status from Slack.
 ## To get started:
 
-### Prerequest:
+### Prerequisite:
 - Slack App token with profile read scope
 ### Implementation:
 - connect a Dotmatrix LED display 8x32 to any esp8266 device
