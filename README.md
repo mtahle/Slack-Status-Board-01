@@ -1,5 +1,7 @@
 # Slack-Status-Board-01
 This is an ESP8266 project on Arduino platform, were it retrieves a user profile status from Slack.
+
+![](demo.gif)
 ## To get started:
 
 ### Prerequisite:
