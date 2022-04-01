@@ -26,3 +26,5 @@ This is an ESP8266 project on Arduino platform, where it retrieves a user profil
 - burn the code
 - connect you to the WiFi AP named Slack-Status 
 - browse to http://192.168.4.1 and set the proper configurations
+
+#### [Detailed Instructions](https://www.instructables.com/Get-Slack-Status-on-Dot-Matrix-LED-Display/)
